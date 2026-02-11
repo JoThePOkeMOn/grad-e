@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Home() {
@@ -6,6 +6,7 @@ export default function Home() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [gradingProgress, setGradingProgress] = useState(0);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -41,6 +42,7 @@ export default function Home() {
 
     setIsSubmitting(true);
     setUploadError("");
+    setGradingProgress(0);
 
     try {
       const formData = new FormData();
@@ -57,14 +59,31 @@ export default function Home() {
       }
 
       const data = await response.json();
-      setIsUploadOpen(false);
-      navigate("/results", { state: { result: data } });
+      setGradingProgress(100);
+      setTimeout(() => {
+        setIsUploadOpen(false);
+        navigate("/results", { state: { result: data } });
+      }, 500);
     } catch (error) {
       setUploadError(error.message || "Something went wrong. Try again.");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (!isSubmitting) return undefined;
+
+    const timer = setInterval(() => {
+      setGradingProgress((prev) => {
+        if (prev >= 90) return prev;
+        const increment = prev < 30 ? 8 : prev < 60 ? 5 : 3;
+        return Math.min(90, prev + increment);
+      });
+    }, 400);
+
+    return () => clearInterval(timer);
+  }, [isSubmitting]);
 
   return (
     // 1. Improved Base Layout: Soft background, centered content, proper dark mode handling
@@ -338,6 +357,7 @@ export default function Home() {
               <button
                 onClick={handleCloseUpload}
                 className="flex items-center justify-center size-9 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+                disabled={isSubmitting}
               >
                 <span className="material-symbols-outlined">close</span>
               </button>
@@ -402,6 +422,44 @@ export default function Home() {
                   {isSubmitting ? "Uploading..." : "Submit for Grading"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isSubmitting && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm px-6">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-[#0f172a] border border-slate-200 dark:border-slate-800 shadow-2xl p-6">
+            <div className="flex items-center gap-3">
+              <div className="size-11 rounded-full bg-primary/10 text-primary flex items-center justify-center">
+                <span className="material-symbols-outlined animate-spin">
+                  autorenew
+                </span>
+              </div>
+              <div>
+                <h4 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Grading in progress
+                </h4>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Uploading and analyzing the answer sheet.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 mb-2">
+                <span>Progress</span>
+                <span>{gradingProgress}%</span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div
+                  className="h-2 rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${gradingProgress}%` }}
+                ></div>
+              </div>
+              <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                We will automatically open the results when ready.
+              </p>
             </div>
           </div>
         </div>
